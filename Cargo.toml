@@ -1,0 +1,25 @@
+[package]
+name = "paseo-relay"
+version = "0.0.1"
+edition = "2021"
+description = "A single-node WebSocket relay for Paseo, in Rust"
+license = "Apache-2.0"
+repository = "https://github.com/derrickzhde/paseo-relay"
+readme = "README.md"
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "sync", "signal"] }
+serde_json = "1"
+base64 = "0.22"
+rand = "0.9"
+futures-util = { version = "0.3", default-features = false, features = ["sink"] }
+tungstenite = "0.29"
+
+[dev-dependencies]
+tokio-tungstenite = "0.29"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
