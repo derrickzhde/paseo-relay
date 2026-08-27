@@ -1,9 +1,11 @@
 use std::collections::HashSet;
-use std::env;
 use std::net::IpAddr;
+use std::path::Path;
 use std::time::Duration;
 
-#[derive(Clone, Debug)]
+use serde::Deserialize;
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Config {
     pub host: IpAddr,
     pub port: u16,
@@ -14,6 +16,19 @@ pub struct Config {
     pub delivery_timeout: Duration,
     pub data_attach_timeout: Duration,
     pub drain: bool,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+struct FileConfig {
+    host: Option<IpAddr>,
+    port: Option<u16>,
+    allowed_server_ids: Option<Vec<String>>,
+    max_sockets: Option<usize>,
+    control_queue_bytes: Option<usize>,
+    delivery_timeout_ms: Option<u64>,
+    data_attach_timeout_ms: Option<u64>,
+    drain: Option<bool>,
 }
 
 impl Default for Config {
@@ -32,79 +47,44 @@ impl Default for Config {
 }
 
 impl Config {
-    pub fn from_env() -> Result<Self, String> {
-        let defaults = Config::default();
+    /// Reads the config file at `path`, falling back to defaults when it is absent.
+    /// `PASEO_RELAY_CONFIG` may override the default path `config.toml` in the
+    /// working directory.
+    pub fn load(path: Option<&str>) -> Result<Self, String> {
+        let path = match path {
+            Some(path) => Path::new(path),
+            None => Path::new("config.toml"),
+        };
+
+        let raw = match std::fs::read_to_string(path) {
+            Ok(raw) => raw,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+            Err(error) => return Err(format!("cannot read {}: {error}", path.display())),
+        };
+
+        let file: FileConfig = toml::from_str(&raw)
+            .map_err(|error| format!("invalid config file {}: {error}", path.display()))?;
 
         Ok(Config {
-            host: parse("PASEO_RELAY_HOST", defaults.host)?,
-            port: parse("PASEO_RELAY_PORT", defaults.port)?,
-            allowed_server_ids: parse_server_ids("PASEO_RELAY_ALLOWED_SERVER_IDS"),
-            max_sockets: parse("PASEO_RELAY_MAX_SOCKETS", defaults.max_sockets)?,
-            control_queue_bytes: parse(
-                "PASEO_RELAY_CONTROL_QUEUE_BYTES",
-                defaults.control_queue_bytes,
-            )?,
-            delivery_timeout: parse_millis(
-                "PASEO_RELAY_DELIVERY_TIMEOUT_MS",
-                defaults.delivery_timeout,
-            )?,
-            data_attach_timeout: parse_millis(
-                "PASEO_RELAY_DATA_ATTACH_TIMEOUT_MS",
-                defaults.data_attach_timeout,
-            )?,
-            drain: parse_bool("PASEO_RELAY_DRAIN", defaults.drain)?,
+            host: file.host.unwrap_or(IpAddr::from([127, 0, 0, 1])),
+            port: file.port.unwrap_or(4000),
+            allowed_server_ids: file
+                .allowed_server_ids
+                .map(|ids| ids.into_iter().collect())
+                .unwrap_or_default(),
+            max_sockets: file.max_sockets.unwrap_or(20_000),
+            control_queue_bytes: file.control_queue_bytes.unwrap_or(1024 * 1024),
+            delivery_timeout: Duration::from_millis(file.delivery_timeout_ms.unwrap_or(30_000)),
+            data_attach_timeout: Duration::from_millis(
+                file.data_attach_timeout_ms.unwrap_or(15_000),
+            ),
+            drain: file.drain.unwrap_or(false),
         })
     }
 
     pub fn allows(&self, server_id: &str) -> bool {
         self.allowed_server_ids.is_empty() || self.allowed_server_ids.contains(server_id)
     }
-}
-
-fn read(name: &str) -> Option<String> {
-    match env::var(name) {
-        Ok(value) if !value.trim().is_empty() => Some(value.trim().to_string()),
-        _ => None,
-    }
-}
-
-fn parse<T: std::str::FromStr>(name: &str, fallback: T) -> Result<T, String> {
-    match read(name) {
-        None => Ok(fallback),
-        Some(value) => value.parse().map_err(|_| format!("{name}: cannot parse {value:?}")),
-    }
-}
-
-fn parse_millis(name: &str, fallback: Duration) -> Result<Duration, String> {
-    match read(name) {
-        None => Ok(fallback),
-        Some(value) => value
-            .parse::<u64>()
-            .map(Duration::from_millis)
-            .map_err(|_| format!("{name}: cannot parse {value:?} as milliseconds")),
-    }
-}
-
-fn parse_bool(name: &str, fallback: bool) -> Result<bool, String> {
-    match read(name).as_deref() {
-        None => Ok(fallback),
-        Some("true" | "1" | "yes") => Ok(true),
-        Some("false" | "0" | "no") => Ok(false),
-        Some(value) => Err(format!("{name}: cannot parse {value:?} as boolean")),
-    }
-}
-
-fn parse_server_ids(name: &str) -> HashSet<String> {
-    read(name)
-        .map(|value| {
-            value
-                .split(',')
-                .map(str::trim)
-                .filter(|entry| !entry.is_empty())
-                .map(str::to_string)
-                .collect()
-        })
-        .unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -124,22 +104,51 @@ mod tests {
             ..Config::default()
         };
         assert!(config.allows("srv_a"));
+        assert!(config.allows("srv_c") == false);
+    }
+
+    #[test]
+    fn missing_file_falls_back_to_defaults() {
+        let config = Config::load(Some("no-such-file.toml")).unwrap();
+        assert_eq!(config, Config::default());
+    }
+
+    #[test]
+    fn full_file_overrides_every_field() {
+        let raw = r#"
+            host = "0.0.0.0"
+            port = 9000
+            allowed_server_ids = ["srv_a", "srv_b"]
+            max_sockets = 100
+            control_queue_bytes = 2048
+            delivery_timeout_ms = 500
+            data_attach_timeout_ms = 250
+            drain = true
+        "#;
+        let dir = std::env::temp_dir().join("paseo-relay-config-test-full");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.toml");
+        std::fs::write(&path, raw).unwrap();
+
+        let config = Config::load(Some(path.to_str().unwrap())).unwrap();
+        assert_eq!(config.host, IpAddr::from([0, 0, 0, 0]));
+        assert_eq!(config.port, 9000);
+        assert!(config.allows("srv_a"));
         assert!(!config.allows("srv_c"));
+        assert_eq!(config.max_sockets, 100);
+        assert_eq!(config.control_queue_bytes, 2048);
+        assert_eq!(config.delivery_timeout, Duration::from_millis(500));
+        assert_eq!(config.data_attach_timeout, Duration::from_millis(250));
+        assert!(config.drain);
     }
 
     #[test]
-    fn server_ids_split_on_commas_and_ignore_blanks() {
-        let parsed: HashSet<String> = " a , ,b,, c "
-            .split(',')
-            .map(str::trim)
-            .filter(|entry| !entry.is_empty())
-            .map(str::to_string)
-            .collect();
-        assert_eq!(parsed, ["a".to_string(), "b".to_string(), "c".to_string()].into_iter().collect());
-    }
+    fn unknown_field_is_rejected() {
+        let dir = std::env::temp_dir().join("paseo-relay-config-test-unknown");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.toml");
+        std::fs::write(&path, "nonsense_key = 1\n").unwrap();
 
-    #[test]
-    fn booleans_accept_common_spellings() {
-        assert!(matches!(parse_bool("PASEO_RELAY_TEST_MISSING_BOOL", true), Ok(true)));
+        assert!(Config::load(Some(path.to_str().unwrap())).is_err());
     }
 }

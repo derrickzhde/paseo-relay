@@ -363,18 +363,18 @@ detach 与转发遵循同一条纪律：**锁内只改表并把待发的关闭/�
 
 ## 5. 配置
 
-环境变量，全部有默认值：
+`config.toml`（工作目录下，可用 `PASEO_RELAY_CONFIG` 指定其他路径），字段全部有默认值：
 
-| 变量 | 默认 | 说明 |
+| 字段 | 默认 | 说明 |
 |---|---|---|
-| `PASEO_RELAY_HOST` | `127.0.0.1` | 监听地址 |
-| `PASEO_RELAY_PORT` | `4000` | 监听端口 |
-| `PASEO_RELAY_ALLOWED_SERVER_IDS` | 空 | 逗号分隔白名单，空则不限制 |
-| `PASEO_RELAY_MAX_SOCKETS` | `20000` | 活跃连接上限。达到后 `/ready` 转 503，新的 upgrade 请求也返回 503 `Relay connection capacity`（对齐 `socket.ex:38-40`） |
-| `PASEO_RELAY_CONTROL_QUEUE_BYTES` | `1048576` | 每连接控制通知队列上限（4.4），取值对齐 Elixir 版同名配置；数据侧固定为 1 条在途载荷，不可配 |
-| `PASEO_RELAY_DELIVERY_TIMEOUT_MS` | `30000` | 即 4.3 伪代码中的 `WRITE_TIMEOUT`：单次 sink 写入的上限 |
-| `PASEO_RELAY_DATA_ATTACH_TIMEOUT_MS` | `15000` | 客户端挂起帧等待数据通道的上限（3.4 的 B 线） |
-| `PASEO_RELAY_DRAIN` | `false` | 启动即进入 draining |
+| `host` | `127.0.0.1` | 监听地址 |
+| `port` | `4000` | 监听端口 |
+| `allowed_server_ids` | `[]` | serverId 白名单数组，空则不限制 |
+| `max_sockets` | `20000` | 活跃连接上限。达到后 `/ready` 转 503，新的 upgrade 请求也返回 503 `Relay connection capacity`（对齐 `socket.ex:38-40`） |
+| `control_queue_bytes` | `1048576` | 每连接控制通知队列上限（4.4），取值对齐 Elixir 版同名配置；数据侧固定为 1 条在途载荷，不可配 |
+| `delivery_timeout_ms` | `30000` | 即 4.3 伪代码中的 `WRITE_TIMEOUT`：单次 sink 写入的上限 |
+| `data_attach_timeout_ms` | `15000` | 客户端挂起帧等待数据通道的上限（3.4 的 B 线） |
+| `drain` | `false` | 启动即进入 draining |
 
 ## 6. 验证策略
 

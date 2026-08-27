@@ -12,6 +12,8 @@ axum = { version = "0.8", features = ["ws"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "sync", "signal"] }
 serde_json = "1"
 base64 = "0.22"
+serde = { version = "1", features = ["derive"] }
+toml = "0.9"
 rand = "0.9"
 futures-util = { version = "0.3", default-features = false, features = ["sink"] }
 tungstenite = "0.29"

@@ -30,28 +30,28 @@ location / {
 
 ## 配置
 
-全部通过环境变量，都有默认值。
+读取工作目录下的 `config.toml`，文件不存在则全部用默认值。所有字段都可省略。完整示例见 [`config.example.toml`](config.example.toml)，可用 `PASEO_RELAY_CONFIG=/path/to/config.toml` 指定其他路径。
 
-| 变量 | 默认 | 说明 |
+| 字段 | 默认 | 说明 |
 | --- | --- | --- |
-| `PASEO_RELAY_HOST` | `127.0.0.1` | 监听地址 |
-| `PASEO_RELAY_PORT` | `4000` | 监听端口 |
-| `PASEO_RELAY_ALLOWED_SERVER_IDS` | 空 | 逗号分隔的 serverId 白名单。**留空等于对所有人开放** |
-| `PASEO_RELAY_MAX_SOCKETS` | `20000` | 活跃连接上限，达到后 `/ready` 转 503 且拒绝新连接 |
-| `PASEO_RELAY_CONTROL_QUEUE_BYTES` | `1048576` | 每连接控制通知队列上限 |
-| `PASEO_RELAY_DELIVERY_TIMEOUT_MS` | `30000` | 单次写入超时，超时即以 1013 剔除慢连接 |
-| `PASEO_RELAY_DATA_ATTACH_TIMEOUT_MS` | `15000` | 客户端等待 daemon 开数据通道的上限 |
-| `PASEO_RELAY_DRAIN` | `false` | 启动即进入排空状态，`/ready` 返回 503 |
+| `host` | `127.0.0.1` | 监听地址 |
+| `port` | `4000` | 监听端口 |
+| `allowed_server_ids` | `[]` | serverId 白名单数组。**留空等于对所有人开放** |
+| `max_sockets` | `20000` | 活跃连接上限，达到后 `/ready` 转 503 且拒绝新连接 |
+| `control_queue_bytes` | `1048576` | 每连接控制通知队列上限 |
+| `delivery_timeout_ms` | `30000` | 单次写入超时，超时即以 1013 剔除慢连接 |
+| `data_attach_timeout_ms` | `15000` | 客户端等待 daemon 开数据通道的上限 |
+| `drain` | `false` | 启动即进入排空状态，`/ready` 返回 503 |
 
 ### 白名单
 
 不设白名单的话，任何知道你域名的人都能把这个中继当免费内网穿透用，流量费你出。建议填上自己的 serverId：
 
-```sh
-PASEO_RELAY_ALLOWED_SERVER_IDS=$(cat ~/.paseo/server-id)
+```toml
+allowed_server_ids = ["<你的 serverId>"]
 ```
 
-多台机器用逗号分隔。白名单只挡陌生 serverId，挡不住已知 serverId 的顶替——这一点与官方中继的风险面相同。
+多台机器就在数组里并列。白名单只挡陌生 serverId，挡不住已知 serverId 的顶替——这一点与官方中继的风险面相同。
 
 ## 让 daemon 用上它
 

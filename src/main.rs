@@ -20,7 +20,7 @@ use crate::state::AppState;
 
 #[tokio::main]
 async fn main() -> ExitCode {
-    let config = match Config::from_env() {
+    let config = match Config::load(std::env::var("PASEO_RELAY_CONFIG").ok().as_deref()) {
         Ok(config) => config,
         Err(message) => {
             eprintln!("invalid configuration: {message}");

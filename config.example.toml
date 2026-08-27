@@ -1,0 +1,24 @@
+# paseo-relay 配置示例。所有字段都可省略,省略即用默认值。
+# 放到工作目录下的 config.toml,或用 PASEO_RELAY_CONFIG=/path/to/config.toml 指定。
+
+# 监听地址与端口
+host = "127.0.0.1"
+port = 4000
+
+# serverId 白名单。留空数组等于对所有人开放
+allowed_server_ids = []
+
+# 活跃连接上限,达到后 /ready 转 503 且拒绝新连接
+max_sockets = 20000
+
+# 每连接控制通知队列上限(字节)
+control_queue_bytes = 1048576
+
+# 单次写入超时(毫秒),超时以 1013 剔除慢连接
+delivery_timeout_ms = 30000
+
+# 宯户端等待 daemon 开数据通道的上限(毫秒)
+data_attach_timeout_ms = 15000
+
+# 启动即进入排空状态,/ready 返回 503
+drain = false

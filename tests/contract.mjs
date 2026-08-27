@@ -395,12 +395,12 @@ async function attachWaitRespectsDeliveryBudget() {
   }
 
   const port = 4099;
+  const configPath = `${import.meta.dirname}/attach-budget-config.toml`;
+  fs.writeFileSync(configPath, `port = ${port}\ndelivery_timeout_ms = 800\ndata_attach_timeout_ms = 15000\n`);
   const child = spawn(bin, [], {
     env: {
       ...process.env,
-      PASEO_RELAY_PORT: String(port),
-      PASEO_RELAY_DELIVERY_TIMEOUT_MS: "800",
-      PASEO_RELAY_DATA_ATTACH_TIMEOUT_MS: "15000",
+      PASEO_RELAY_CONFIG: configPath,
     },
     stdio: "ignore",
   });
@@ -436,6 +436,7 @@ async function attachWaitRespectsDeliveryBudget() {
     eq("  reason", closed?.reason, "Data route unavailable");
   } finally {
     child.kill();
+    fs.rmSync(configPath, { force: true });
   }
 }
 
