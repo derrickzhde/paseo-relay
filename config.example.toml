@@ -17,7 +17,7 @@ control_queue_bytes = 1048576
 # 单次写入超时(毫秒),超时以 1013 剔除慢连接
 delivery_timeout_ms = 30000
 
-# 宯户端等待 daemon 开数据通道的上限(毫秒)
+# 客户端等待 daemon 开数据通道的上限(毫秒)
 data_attach_timeout_ms = 15000
 
 # 启动即进入排空状态,/ready 返回 503
